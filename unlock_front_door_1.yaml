@@ -1,0 +1,40 @@
+alias: Un lock Front Door
+description: security door control actions
+triggers:
+  - trigger: state
+    entity_id:
+      - script.lock_front_door_2
+    to: null
+conditions:
+  - condition: and
+    conditions:
+      - condition: template
+        value_template: "{{ states('input_text.text1') | regex_match('xxxxxx') }}"   # code 1
+      - condition: template
+        value_template: "{{ states('input_text.text2') | regex_match('y.yyy') }}"    # code 2
+actions:
+  - type: turn_on
+    device_id: f757fad91cc2dd9857bd4c4c2ec1d4be
+    entity_id: 9ee6947d79b05e44c1d7fcd4f2abf43a
+    domain: switch
+  - action: notify.notify
+    metadata: {}
+    data:
+      message: Front Door accessed
+  - delay:
+      hours: 0
+      minutes: 0
+      seconds: 10
+      milliseconds: 0
+# this  section wipes the code entered on the overview after use
+  - data:
+      value: "\"\""
+    target:
+      entity_id: input_text.text1
+    action: input_text.set_value
+  - data:
+      value: "\"\""
+    target:
+      entity_id: input_text.text2
+    action: input_text.set_value
+mode: single

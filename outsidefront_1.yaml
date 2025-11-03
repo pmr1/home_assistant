@@ -1,0 +1,132 @@
+esphome:
+  name: outsidefront
+  friendly_name: OutsideFront
+  #includes:
+
+
+
+
+esp8266:
+  board: esp01_1m
+
+# Enable logging
+logger:
+  #level: VERBOSE #makes uart stream available in esphome logstream
+  baud_rate: 9600
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "7kw40Pmk709tM48auLJhWk/jI42n4SnX4IejLtHyCRE="
+
+ota:
+  - platform: esphome
+    password: "5be05596b9812d9191fb1796255ecd97"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Outsidefront Fallback Hotspot"
+    password: "R50phDPneL71"
+
+
+one_wire:
+  - platform: gpio
+    pin: GPIO13
+    
+
+output:
+  - platform: gpio
+    pin: GPIO4
+    id: outSideOn 
+     
+    
+  - platform: gpio
+    pin: GPIO2    
+    id: blue_led
+
+sensor:
+  - platform: dallas_temp
+    address: 0x293c01d075264a28
+    name: "temp_outside_front"
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO14  # D5 on mini
+  rx_pin: GPIO12   # D6 
+  baud_rate: 9600
+  rx_buffer_size: 50
+  debug:
+    direction: RX
+    dummy_receiver: true
+    sequence:
+      - lambda: |-
+          UARTDebug::log_string(direction, bytes);  //Still log the data
+          
+          // Example to convert uart text to string
+          std::string str(bytes.begin(), bytes.end());
+
+          // watch for potential problems with non printable or special characters in string
+          id(rawString).publish_state(str.c_str());
+          
+
+text_sensor:
+  - platform: template
+    name: "Raw String"
+    id: "rawString"
+
+    
+switch:
+  - platform: output
+    id: frontLight
+    name: "front_light"
+    output: outSideOn
+    on_turn_on: 
+      then:
+        - output.turn_off: blue_led
+    on_turn_off: 
+      then:
+        - output.turn_on: blue_led
+
+  - platform: uart
+    name: "unlock0"
+    # to include escape characters strings must be in ""  see :https://www.cloudbees.com/blog/yaml-tutorial-everything-you-need-get-started
+    # because of the low speed of SM700 the sequence of lock and unlock are seperated by 1s
+    data: 
+      "xxxxxx\r\n"   # your code1
+
+  - platform: uart
+    name: "unlock1"  
+    data: 
+      "y.yyyy\r\n"  # your code2
+
+  - platform: uart
+    name: "unlock2"  
+    data: 
+      "nunlock\r\n"
+     
+         
+  - platform: uart
+    name: "lock0"
+    data:
+      "xxxxxx\r\n" # code1 sent to synapse wireless module
+
+  - platform: uart
+    name: "lock1"   
+    data:
+      "y.yyyy\r\n" # code2 sent to synapse wireless module
+
+  - platform: uart
+    name: "lock2"
+    data:
+      "lock\r\n"  # test code to operate
+      
+  - platform: uart
+    name: "state"  # return the state of the locked device
+    data:
+      "state\r\n"
+    
+
