@@ -1,0 +1,90 @@
+
+# this compiles but GPIO1 doen't toggle
+esphome:
+  name: lightsw1
+  friendly_name: lightSw1
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "tvqTEM+atkTXDQqZaWqAiZlUvo1DETepjhDbwr0ifVM="
+
+ota:
+  - platform: esphome
+    password: "a7a1ecf7b8e986181f4223f52907ce75"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Lightsw1 Fallback Hotspot"
+    password: "Yk4TCb8p7wmL"
+
+
+captive_portal:
+
+
+sensor:
+  - platform: template
+    name: "BLE Sensor"
+    id: ble_sensor
+
+esp32_ble_tracker:
+  on_ble_advertise:
+    - mac_address:
+        - e5:0a:33:0c:2d:32
+      then:
+        - lambda: |-  
+            ESP_LOGD("ble_adv", "  Advertised service data:");
+            for (auto data : x.get_service_datas()) {
+                ESP_LOGD("ble_adv", "    - %s: (length %i)", data.uuid.to_string().c_str(), data.data.size());
+                if (data.uuid == esp32_ble_tracker::ESPBTUUID::from_uint16(0x5242)) {
+                if (data.data.size() > 0) {
+                   uint8_t value = data.data[11];  // byte holds switch data in bit[0] 0 being lsb
+                // Process the value (e.g., publish to a sensor)
+                   id(ble_sensor).publish_state(value);
+                ESP_LOGD("ble_adv", " switch data   - %d: " , value);
+              }
+            }
+            ESP_LOGD("ble_adv", "  Data: %s", format_hex_pretty(data.data).c_str());   // this displays the switch data
+            }
+            
+            ESP_LOGD("ble_adv", "  Advertised manufacturer data:");
+            for (auto data : x.get_manufacturer_datas()) {
+                ESP_LOGD("ble_adv", "    - %s: (length %i)", data.uuid.to_string().c_str(), data.data.size());
+            }
+
+
+switch:
+  - platform: gpio
+    pin: GPIO1
+    id: light_Control
+    name: "room light"
+  
+
+binary_sensor:
+  - platform: template 
+    name: "room switch"
+    id: room_switch
+    lambda: |-
+      if (id(ble_sensor).state) {
+        return true;
+      } else {
+        return false;
+      }
+    on_press:
+      then:
+        - switch.turn_on: light_Control  
+    on_release:
+      then:
+        - switch.turn_off: light_Control
